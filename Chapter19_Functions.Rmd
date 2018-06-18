@@ -1,0 +1,386 @@
+# Functions
+
+## Introduction
+
+No Exercises.
+
+## When should you write a function?
+
+### Practice
+
+*1- Why is `TRUE` not a parameter to `rescale01()`? What would happen if `x` contained a single missing value, and `na.rm` was `FALSE`?*
+
+`TRUE` is not a parameter to `rescale01()` because we want `na.rm` to always be equal to `TRUE`.
+
+If `na.rm` is set to `FALSE` and there are missing values in the input vectors, the output vectors will be all `NA`s. 
+
+```{r}
+rescale01 <- function(x) {
+  rng <- range(x, na.rm = FALSE)
+  (x - rng[1]) / (rng[2] - rng[1])
+}
+
+rescale01(c(1,2,3,4,NA))
+```
+
+*2 - In the second variant of `rescale01()`, infinite values are left unchanged. Rewrite `rescale01()` so that `-Inf` is mapped to 0, and `Inf` is mapped to 1.*
+
+```{r}
+rescale01 <- function(x) {
+  rng <- range(x, na.rm = TRUE, finite = TRUE)
+  #replace -inf with 0
+  x[x == -Inf] <- 0
+  #replace Inf with 1
+  x[x == Inf] <- 1
+  (x - rng[1]) / (rng[2] - rng[1])
+}
+
+rescale01(c(1,2,3,4,5,NA,6,7,8,-Inf,9,Inf))
+```
+
+*3 - Practice turning the following code snippets into functions. Think about what each function does. What would you call it? How many arguments does it need? Can you rewrite it to be more expressive or less duplicative?*
+
+```{r eval = FALSE}
+mean(is.na(x))
+
+x / sum(x, na.rm = TRUE)
+
+sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE)
+```
+
+The first code returns the proportion of `NA` in a vector. I am giving the name `prop_NA` to the function.
+
+```{r}
+prop_NA <- function(x){
+  return(mean(is.na(x)))
+}
+```
+
+The second code converts the raw values to their weights. `to_weights` is the name. Note that the function will not work if there are negative numbers in the vector.
+
+```{r}
+to_weights <- function(x){
+  x / sum(x, na.rm = TRUE)
+}
+```
+
+The third code is the formula for coefficient of variation. So I am naming the fucntion `coefvar`.
+
+```{r}
+coefvar <- function(x){
+  return(sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE))
+}
+```
+
+*4 - Follow http://nicercode.github.io/intro/writing-functions.html to write your own functions to compute the variance and skew of a numeric vector.*
+
+Assuming we are referrring to the calculation of sample variance:
+
+```{r}
+my_variance <- function(x){
+  #difference from the mean
+  diff_from_mean <- (x - mean(x, rm.na = TRUE))
+  #sum of squares
+  sum_of_squares <- sum(diff_from_mean^2, rm.na = TRUE)
+  #return sample variance
+  return(sum_of_squares/(sum(!is.na(x)) - 1))
+}
+
+my_variance(c(1,2,3,4,3,2,3,4,5))
+```
+
+For skewness, we use ratio of the third moment and standard deviation cubed.
+
+```{r}
+my_skewness <- function(x){
+  diff_from_mean <- (x - mean(x, rm.na = TRUE))
+  third_moment <- sum(diff_from_mean^3, na.rm = TRUE)
+  std_cubed <- sum(diff_from_mean^2, na.rm = TRUE)^(3/2)/sqrt(sum(!is.na(x)))
+  return(third_moment/std_cubed)
+}
+
+my_skewness(c(1,2,3,2,1))
+```
+
+*5 - Write `both_na()`, a function that takes two vectors of the same length and returns the number of positions that have an NA in both vectors.*
+
+```{r}
+both_na <- function(x, y){
+  #get positions of NA
+  x <- is.na(x)
+  y <- is.na(y)
+  #return number of same positions that have NA 
+  return(sum(x & y))
+}
+
+both_na(c(1,2,NA,NA,5), c(5,4,3,NA,NA))
+```
+
+*6 - What do the following functions do? Why are they useful even though they are so short?*
+
+The first function returns either `TRUE` if `x` is a directory, and `FALSE` otherwise.
+
+```{r eval = FALSE}
+is_directory <- function(x) file.info(x)$isdir
+
+is_directory("../R4DS_Solutions")
+```
+
+```{r}
+is_readable <- function(x) file.access(x, 4) == 0
+
+is_readable("Chapter10.html")
+```
+
+They are useful because the function names are more meaningful and interpretable than the codes themselves.
+
+*7 - Read the complete lyrics to “Little Bunny Foo Foo”. There’s a lot of duplication in this song. Extend the initial piping example to recreate the complete song, and use functions to reduce the duplication.*
+
+```{r}
+foofoo <- function(){
+  first <- "Little bunny Foo Foo\nHopping through the forest\nScooping up the field mice\nAnd bopping them on the head"
+  
+  second <-"Down came the Good Fairy, and she said\n\"Little bunny Foo Foo\nI don't want to see you\nScooping up the field mice\nAnd bopping them on the head.\""
+  cat(second)
+  
+  i <- 3
+  
+  while(i > 0){
+    word <- switch(i,
+                   'one',
+                   'two',
+                   'three'
+                   )
+    third <- paste0("I'll give you ", word, " chances,\nAnd if you don't behave, I will turn you into a goon!\"\nAnd the next day...")
+    cat(first, second, third, sep = "\n\n")
+    i <- i - 1
+  }
+  
+  final <- "I gave you three chances and you didn't behave so....\nPOOF. She turned him into a Goon."
+  
+  cat(first, second, final, sep = "\n\n")
+  
+}
+
+foofoo()
+```
+
+## Functions are for humans and computers 
+
+### Exercises
+
+*1 - Read the source code for each of the following three functions, puzzle out what they do, and then brainstorm better names.*
+
+The first function checks whether the word starts with a given prefix. `is_prefix` can be the name of the function.
+
+```{r eval = FALSE}
+is_prefix <- function(string, prefix) {
+  substr(string, 1, nchar(prefix)) == prefix
+}
+
+```
+
+The second function removes the last element of a vector. If the vector length is less than or equal to 1, then the function returns `NULL`. `remove_last` is the name:
+
+```{r eval = FALSE}
+remove_last <- function(x) {
+  if (length(x) <= 1) return(NULL)
+  x[-length(x)]
+}
+```
+
+The third function repeats `y` and returns a vector of length `x`. `repeat_max` can be the name:
+
+```{r eval = FALSE}
+repeat_max <- function(x, y) {
+  rep(y, length.out = length(x))
+}
+```
+
+*2 - Take a function that you’ve written recently and spend 5 minutes brainstorming a better name for it and its arguments.*
+
+To Do.
+
+*3 - Compare and contrast `rnorm()` and `MASS::mvrnorm()`. How could you make them more consistent?*
+
+`rnorm()` returns values drawn from a normal distribution. `mvrnorm()` returns values draw from a multivariable normal distribution. The names are self explanatory, and the argument names are correct, clear and already consistent.
+
+*4 - Make a case for why `norm_r()`, `norm_d()` etc would be better than `rnorm()`, `dnorm()`. Make a case for the opposite.*
+
+It's the opposite way of thinking. In `rnomr()`, the logic of thinking is "I want to generate random numbers from a normal distribution". In `norm_r()`, the logic is "I want to use normal distribution to generate random numbers."
+
+## Conditional execution
+
+### Exercises
+
+*1 - What’s the difference between `if` and `ifelse()`? Carefully read the help and construct three examples that illustrate the key differences.*
+
+They are both used to execute conditional statements.
+
+`ifelse()` can be cleaner and easier to understand than using `if` statements in some caes. For example:
+
+```{r}
+age <- 17
+
+ifelse(age >= 18, 'adult', 'child')
+```
+
+If written with `if` structure:
+
+```{r}
+age <- 17
+
+f <- function(x){
+  if (age >= 18) {
+    return('adult')
+  } else {
+    return('child')
+  }
+}
+
+f(age)
+```
+
+*2 - Write a greeting function that says “good morning”, “good afternoon”, or “good evening”, depending on the time of day. (Hint: use a time argument that defaults to lubridate::now(). That will make it easier to test your function.)*
+
+```{r}
+greeting <- function(){
+  h <- lubridate::hour(lubridate::now())
+  if (dplyr::between(h, 12, 18)){
+    print("Good Afternoon.")
+  } else if(dplyr::between(h, 18, 24)){
+    print("Good Evening")
+  } else {
+    print("Good Morning")
+  }
+}
+
+greeting()
+```
+
+*3 - Implement a `fizzbuzz` function. It takes a single number as input. If the number is divisible by three, it returns “fizz”. If it’s divisible by five it returns “buzz”. If it’s divisible by three and five, it returns “fizzbuzz”. Otherwise, it returns the number. Make sure you first write working code before you create the function.*
+
+```{r}
+fizzbuzz <- function(x){
+  if (x %% 3 == 0 && x %% 5 == 0){
+    print('fizzbuzz')
+  } else if (x %% 3 == 0) {
+    print('fizz')
+  } else if (x %% 5 == 0) {
+    print('buzz')
+  } else {
+    print(x)
+  }
+}
+
+fizzbuzz(15)
+```
+
+*4 - How could you use `cut()` to simplify this set of nested if-else statements?*
+
+```{r eval = FALSE}
+if (temp <= 0) {
+  "freezing"
+} else if (temp <= 10) {
+  "cold"
+} else if (temp <= 20) {
+  "cool"
+} else if (temp <= 30) {
+  "warm"
+} else {
+  "hot"
+}
+```
+
+```{r}
+classify_temp <- function(x){
+  cut(x, breaks = c(-Inf,0,10,20,30,Inf),
+      labels = c('freezing','cold','cool','warm','hot'))
+}
+
+classify_temp(c(-10,0,15,25,30,35))
+```
+
+*4 - How would you change the call to `cut()` if I’d used `<` instead of `<=`? What is the other chief advantage of `cut()` for this problem? (Hint: what happens if you have many values in temp?)*
+
+If `<` is used instead of `<=`, the arguemnt `right = FALSE` can be added to indicate the intervales should be closed on the left.
+
+The advantagne of using `cut()` is that the operation can be vectorized.
+
+*5 - What happens if you use `switch()` with numeric values?*
+
+If if use `switch()` with numeric values, it will look for the ith option:
+
+```{r eval = FALSE}
+switch(1,
+       'one',
+       'two')
+```
+
+```{r}
+switch(2,
+       'one',
+       'two')
+```
+
+
+*6 - What does this `switch()` call do? What happens if `x` is “e”?*
+
+This `switch()` returns `ab` if `x` is equal to `a` or `b`, and returns `cd` if `x` is equal to `c` or `d`. Since no expression is define what value should be returned if `x` is `e`, it returns nothing.
+
+```{r eval = FALSE}
+x <- 'a'
+
+switch(x, 
+  a = ,
+  b = "ab",
+  c = ,
+  d = "cd"
+)
+```
+
+## Function arguments
+
+### Exercises
+
+*1 - What does `commas(letters, collapse = "-")` do? Why?*
+
+```{r}
+commas <- function(..., collapse = ', ') {
+  stringr::str_c(..., collapse = collapse)
+}
+
+commas(letters, collapse = "-")
+```
+
+I don't know if it was intentional or not, but we should define an additional argument that allows users to specify the `collapse` character. The default `collapse` character is ", ". `commas(letters, collapse = "-")` will change the `collapse` character to "-".
+
+*2 - It’d be nice if you could supply multiple characters to the `pad` argument, e.g. `rule("Title", pad = "-+")`. Why doesn’t this currently work? How could you fix it?*
+
+```{r}
+rule <- function(..., pad = "-") {
+  title <- paste0(...)
+  width <- getOption("width") - nchar(title) - 5
+  cat(title, " ", stringr::str_dup(pad, width), "\n", sep = "")
+}
+
+rule("Title", pad = "-+*")
+```
+
+Not sure what it means by it does not currectly work. It works for me.
+
+*3 - What does the `trim` argument to `mean()` do? When might you use it?*
+
+The `trim` method excludes a fraction of observations from the calculation of the mean. It would be useful if the vector is ordered and contains outliers at either end.
+
+*4 - The default value for the `method` argument to `cor()` is `c("pearson", "kendall", "spearman")`. What does that mean? What value is used by default?*
+
+It means that the `method` argument can take on one of those values. "pearson" is the default value.
+
+## Return values
+
+No exercises.
+
+## Environment
+
+No exercises.

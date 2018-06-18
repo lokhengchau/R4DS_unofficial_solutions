@@ -1,0 +1,274 @@
+#Vectors
+
+## Introduction
+
+No exercises.
+
+## Vector basics
+
+No exercises.
+
+## Important types of atomic vector
+
+### Exercises
+
+```{r message = FALSE, warning = FALSE}
+library(tidyverse)
+```
+
+*1 - Describe the difference between `is.finite(x)` and `!is.infinite(x)`.*
+
+`is.finite(x)` returns `TRUE` if x is a finite value, hence not `NA`, `NaN`, or `Inf`.
+
+```{r}
+is.finite(c(123, NA, NaN, Inf))
+```
+
+`is.infinite(x)` returns `TRUE` if x is either `Inf` or `-Inf`. The `!` at the front means 'not', and changes the return value from `TRUE` to `FALSE`, or vice verse.
+
+```{r}
+!is.infinite(c(123, NA, NaN, Inf))
+```
+
+*2 - Read the source code for `dplyr::near()` (Hint: to see the source code, drop the ()). How does it work?*
+
+```{r eval = FALSE}
+function (x, y, tol = .Machine$double.eps^0.5) 
+{
+    abs(x - y) < tol
+}
+```
+
+`.Machine$double.eps^0.5` is equal to 1.490116e-08. If the absolute difference between `x` and `y` is less than 1.490116e-08, then `x` and `y` are esentially equal, and the function returns `TRUE`.
+
+*3 - A logical vector can take 3 possible values. How many possible values can an integer vector take? How many possible values can a double take? Use google to do some research.*
+
+The largest possible integer is:
+
+```{r}
+.Machine$integer.max
+```
+
+Including negative integers, zero, and `NA`, the number of possible values an integer vector can take is:
+
+```{r}
+.Machine$integer.max * 2 + 1 + 1
+```
+
+```{r}
+.Machine$double.xmax
+```
+
+*4 - Brainstorm at least four functions that allow you to convert a double to an integer. How do they differ? Be precise.*
+
+`as.integer()` removes the decimal points and converts the type to integer:
+
+```{r}
+as.integer(11.23)
+as.integer(-11.23)
+typeof(as.integer(11.23))
+```
+
+`floor()` removes the decimal points and returns the largest integer not greater than the input values. However, the type of the value returned is double:
+
+```{r}
+floor(11.23)
+floor(-11.23)
+typeof(floor(11.23))
+```
+
+`trunc()` removes the decimal points and truncates the values toward 0. The returned value is double:
+
+```{r}
+trunc(11.23)
+trunc(-11.23)
+typeof(trunc(11.23))
+```
+
+There are also `ceiling()`, `round()`, and `signif()` that removes the decimal places and returns an integer. However, only `as.integer()` truly returns a value of type integer.
+
+*5 - What functions from the readr package allow you to turn a string into logical, integer, and double vector?*
+
+`parse_logical()`, `parse_integer()`, and `parse_double()`.
+
+## Using atomic vectors
+
+### Exercises
+
+*1 - What does `mean(is.na(x))` tell you about a vector x? What about sum(!is.finite(x))?*
+
+`mean(is.na(x))` tells you the proportion of values in a vector that are `NA`:
+
+```{r}
+x <- c(1,2,3,4,NA,NA, Inf)
+mean(is.na(x))
+```
+
+`sum(!is.finite(x))` tells you the number of non-finite values in a vector:
+
+```{r}
+x <- c(1,2,3,4,NA,NA, Inf)
+sum(!is.finite(x))
+```
+
+*2 - Carefully read the documentation of `is.vector()`. What does it actually test for? Why does `is.atomic()` not agree with the definition of atomic vectors above?*
+
+`is.atomic()` does one simply job only, and that is the test whether the vector is an atomic vector:
+
+```{r}
+is.atomic(c(1,2,3,4))
+is.atomic(c("Am", "I", "atomic?"))
+```
+
+`is.vector()` returns `TRUE` only if the vector has no attributes other than names:
+
+```{r}
+#vector with no attributes
+x <- c(1,2,3,4)
+#vector with names attribute
+y <- c(x = 1, y = 2, z = 3, zz = 4)
+#vector with two attributes: names and awesome
+z <- c(x = 1, y = 2, z = 3, zz = 4)
+attr(z, "awesome") <- "extreme"
+
+is.vector(x)
+is.vector(y)
+is.vector(z)
+```
+
+*3 - Compare and contrast `setNames()` with `purrr::set_names()`*
+
+In `setNames()`, you must provide the vector to be named and the vector of names.
+
+In `purrr::set_names()`, three things can happen. You can provide the vector to be named and the vector of names, just like in `setNames()`.
+
+```{r}
+purrr::set_names(c(1,2,3), c("a", "b", "c"))
+```
+
+If the vector of names is not provided, the input vector is named after itself:
+
+```{r}
+purrr::set_names(c(1,2,3))
+```
+
+If the input vector is already named, a function can be provided to transform the original names:
+
+```{r}
+purrr::set_names(c(x = 1, y = 2, z = 3), toupper)
+```
+
+*4. Create functions that take a vector as input and returns:*
+
+*The last value. Should you use `[` or `[[`?*
+
+Using `[[` will ensure the last value will be returned even input vector is a list.
+
+```{r}
+fun1 <- function(x) {
+  x[[length(x)]]
+}
+
+fun1(c(1,2,3,4,5))
+```
+
+*The elements at even numbered positions.*
+
+```{r}
+fun2 <- function(x) {
+  x[seq_len(length(x)) %% 2 == 0]
+}
+
+fun2(c(1:10))
+```
+
+*Every element except the last value.*
+
+```{r}
+fun3 <- function(x){
+  x[1:length(x) - 1]
+}
+
+fun3(1:10)
+```
+
+*Only even numbers (and no missing values).*
+
+```{r}
+fun4 <- function(x){
+  iseven <- x %% 2 == 0
+  nonNA <- !is.na(x)
+  
+  x[iseven & nonNA]
+}
+
+fun4(c(1:10, NA, NA, 11:16))
+```
+
+## Recursive vectors (lists)
+
+### Exercise
+
+*1. Draw the following lists as nested sets:*
+
+*list(a, b, list(c, d), list(e, f))*
+
+*list(list(list(list(list(list(a))))))*
+
+
+*2. What happens if you subset a tibble as if you’re subsetting a list? What are the key differences between a list and a tibble?*
+
+Subsetting a tibble with `[` will return a tibble:
+
+```{r}
+tblmtcars <- as.tibble(mtcars)
+
+tblmtcars['cyl']
+```
+
+and `[[` will return a vector:
+
+```{r}
+tblmtcars[['cyl']]
+```
+
+Which is very similiar to subsetting in lists. (`[` returns a list, and `[[` returns a value inside the list)
+
+## Attributes
+
+No exercises.
+
+## Augmented vectors
+
+*1. What does hms::hms(3600) return? How does it print? What primitive type is the augmented vector built on top of? What attributes does it use?*
+
+`hms::hms(3600)` returns the time in the format "hours:minutes:seconds".
+```{r}
+hms::hms(3600)
+```
+
+It is stored as a double, and the attributes are:
+
+```{r}
+attributes(hms::hms(3600))
+```
+
+*2. Try and make a tibble that has columns with different lengths. What happens?*
+
+If the column has length of 1, it will be repeated:
+
+```{r}
+tibble(x = 1:6, y = 1)
+```
+
+Otherwise, if the columns are of different lengths, the shorter column will not be repeated and it will return an error:
+
+```{r eval = FALSE}
+> tibble(x = 1:6, y = 1:2)
+
+# Error: Column `y` must be length 1 or 6, not 2
+```
+
+*3. Based on the definition above, is it ok to have a list as a column of a tibble?*
+
+A list can have vectors of varying lengths, while a tibble must consist of columns of the same length. As long as the elements of the lists have the same length, otherwise it is not okay to have a list as a column of a tibble.

@@ -1,0 +1,180 @@
+# Factors
+
+## Introduction
+
+No exercises.
+
+## Creating factors
+
+No exercises.
+
+## General Social Survey
+
+### Exercise
+
+```{r message = FALSE, warning = FALSE}
+library(tidyverse)
+library(forcats)
+```
+
+*1 - Explore the distribution of `rincome` (reported income). What makes the default bar chart hard to understand? How could you improve the plot?*
+
+```{r}
+gss_cat %>% ggplot() +
+  geom_bar(mapping = aes(x = rincome)) +
+  theme(axis.text.x=element_text(angle=90, hjust=1))
+```
+
+The default bar chart is difficult to understand because `Not applicable` should be put in the front. Also with so many levels, a horizontal bar chart will look better.
+
+
+```{r}
+gss_cat %>%
+  ggplot() +
+  geom_bar(mapping = aes(x = fct_relevel(rincome, "Not applicable"))) +
+  coord_flip()
+```
+
+*2 - What is the most common `relig` in this survey? What's the most common `partyid`?*
+
+For `relig`:
+
+```{r}
+gss_cat %>%
+  count(relig) %>%
+  arrange(desc(n))
+```
+
+For `partyid`:
+
+```{r}
+gss_cat %>%
+  count(partyid) %>%
+  arrange(desc(n))
+```
+
+*3 - Which `relig` does `denom` (denomination) apply to? How can you find out with a table? How can you find out with a visualisation?*
+
+With `table`:
+
+```{r}
+table(gss_cat$relig, gss_cat$denom)
+```
+
+With so many levels it is very hard to see. We can use `geom_tile()`:
+
+```{r}
+gss_cat %>% group_by(relig, denom) %>%
+  summarize(n = n()) %>%
+  complete(relig, denom, fill = list(n = 0)) %>%
+  ggplot() +
+  geom_tile(mapping = aes(x = relig, y =  denom, fill = n)) +
+  scale_fill_gradient(low = 'white', high = 'steelblue') +
+  theme(axis.text.x=element_text(angle=90, hjust=1))
+```
+
+which gives us too much empty space. Perhaps a scatter plot with different point area will look better:
+
+```{r}
+gss_cat %>% group_by(relig, denom) %>%
+  summarize(n = n()) %>%
+  ggplot() +
+  geom_point(mapping = aes(x = relig, y =  denom, size = n)) +
+  theme(axis.text.x=element_text(angle=90, hjust=1))
+```
+
+## Modifying factor order
+
+### Exercises
+
+*1 - There are some suspiciously high numbers in `tvhours`. Is the mean a good summary?*
+
+The distribution of `tvhours` is highly skewed. The mean might not be the best choice as it is heavily influenced by the extreme values in `tvhours`. Median would probably be a better choice.
+
+```{r}
+ggplot(gss_cat, mapping = aes(x = tvhours)) +
+  geom_bar()
+```
+
+*2 - For each factor in `gss_cat` identify whether the order of the levels is arbitrary or principled.*
+
+There are 6 factor variables in `gss_cat`.
+
+`marital` - To me, they are arbitrary. At least it feels weird to order "Separated", "Divorced", and "Widowed".
+
+```{r}
+levels(gss_cat$marital)
+```
+
+`race` - Arbitrary
+
+```{r}
+levels(gss_cat$race)
+```
+
+`rincome` - Principled
+
+```{r}
+levels(gss_cat$rincome)
+```
+
+`partyid` - Principled within party (i.e., not strong vs strong), but arbitrary between parties.
+
+```{r}
+levels(gss_cat$partyid)
+```
+
+`relig` - Arbitrary
+
+```{r}
+levels(gss_cat$relig)
+```
+
+`denom` - Arbitrary
+
+```{r}
+levels(gss_cat$denom)
+```
+
+*3 - Why did moving "Not applicable"" to the front of the levels move it to the bottom of the plot?*
+
+The positions of the levels on the plot are determiend by the factor levels. The first level is placed at the bottom, and the last level is placed at the top.
+
+## Modifying factor levels
+
+### Exercises
+
+*1 - How have the proportions of people identifying as Democrat, Republican, and Independent changed over time?*
+
+```{r}
+gss_cat %>%
+  mutate(partyid = fct_collapse(partyid,
+    other = c("No answer", "Don't know", "Other party"),
+    rep = c("Strong republican", "Not str republican"),
+    ind = c("Ind,near rep", "Independent", "Ind,near dem"),
+    dem = c("Not str democrat", "Strong democrat"))) %>%
+  group_by(year, partyid) %>%
+  summarize(n = n()) %>%
+  ggplot(mapping = aes(x = year, y = n, color = fct_reorder2(partyid, year, n))) +
+  geom_point() +
+  geom_line() +
+  labs(color = 'Party',
+       x = 'Year',
+       y = 'Count')
+```
+
+*2 - How could you collapse `rincome` into a small set of categories?*
+
+We could collapse the lower levels so each the levels are consistently increments of $5000, collpase "No answer", "Don't know", and "Refused" to a single category.
+
+```{r}
+gss_cat %>%
+  mutate(rincome = fct_collapse(rincome,
+    "No answer" = c("No answer", "Don't know", "Refused"),
+    "$0 to 4999" = c("Lt $1000", "$1000 to 2999", "$3000 to 3999", "$4000 to 4999"),
+    "$5000 to 9999" = c("$5000 to 5999", "$6000 to 6999",
+                        "$7000 to 7999", "$8000 to 9999"))) %>%
+  mutate(rincome = fct_relevel(rincome, "Not applicable")) %>%
+  count(rincome)
+```
+

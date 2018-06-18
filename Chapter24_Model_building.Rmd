@@ -1,0 +1,59 @@
+# Model building
+
+## Introduction
+
+No exercises
+
+## Why are low quality diamonds more expensive?
+
+### Exercises
+
+*1. In the plot of `lcarat` vs. `lprice`, there are some bright vertical strips. What do they represent?*
+
+The bright vertical strips represent larger counts of diamonds observed at carat size of .5, 1.0, 1.5, and 2.0. As suggested in one of the previous chapters, there is a tendecy for humans to report rounded numbers.
+
+*If log(price) = a_0 + a_1 \* log(carat), what does that say about the relationship between price and carat?*
+
+```{r}
+diamonds %>%
+  ggplot(aes(carat, price)) +
+  geom_point()
+```
+
+The relationship is price ~= carat ^ a_1.
+
+*3. Extract the diamonds that have very high and very low residuals. Is there anything unusual about these diamonds? Are the particularly bad or good, or do you think these are pricing errors?*
+
+```{r echo = FALSE}
+diamonds2 <- diamonds %>% 
+  filter(carat <= 2.5) %>% 
+  mutate(lprice = log2(price), lcarat = log2(carat))
+
+mod_diamond <- lm(lprice ~ lcarat, data = diamonds2)
+```
+
+Assuming we are referring to the first fitted model, `mod_diamond`, first we extract the standardized residuals and decide anything greater than -3.5 or 3.5 as extreme.
+
+```{r}
+very_high <- which(abs(scale(resid(mod_diamond))) >= 3.5)
+```
+
+Visually looking at the data of these diamonds:
+
+```{r}
+diamonds[very_high,]
+```
+
+I am not a diamond expert, and I don't see anything particularly wrong. Perhaps it could be due to pricing errors.
+
+*4. Does the final model, `mod_diamonds2`, do a good job of predicting diamond prices? Would you trust it to tell you how much to spend if you were buying a diamond?*
+
+```{r echo = FALSE}
+mod_diamond2 <- lm(lprice ~ lcarat + color + cut + clarity, data = diamonds2)
+```
+
+```{r}
+summary(mod_diamond2)$r.square
+```
+
+The model explains 98.27% percent variation in price. I would trust this model.

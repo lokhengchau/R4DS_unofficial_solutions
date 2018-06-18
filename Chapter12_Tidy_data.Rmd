@@ -1,0 +1,399 @@
+# Tidy data
+
+## Introduction
+
+No exercises.
+
+## Tidy data
+
+### Exercises
+
+```{r message = FALSE, warning = FALSE}
+library(tidyverse)
+```
+
+*1- Using prose, describe how the variables and observations are organised in each of the sample tables.*
+
+In `table1`, each observation has its own row and each variable has its own column.
+
+```{r echo = FALSE}
+table1
+```
+
+In `table2`, each row represents the country, year, and the variable type of either `case` or `population`. The variable `count` represents the unique value for the variable type.
+
+```{r echo = FALSE}
+table2
+```
+
+In `table3`, the variables `case` and `count` are mutated into a new variable `rate`.
+
+```{r echo = FALSE}
+table3
+```
+
+In `table4`, `cases` and `population` are represented in separate tables. Years `1999` and `2000` are treated as different variables.
+
+```{r echo = FALSE}
+table4a
+```
+
+```{r echo = FALSE}
+table4b
+```
+
+*2 - Compute the rate for `table2`, and `table4a + table4b`. You will need to perform four operations:*
+
+*1. Extract the number of TB cases per country per year.*
+*2. Extract the matching population per country per year.*
+*3. Divide cases by population, and multiply by 10000.*
+*4. Store back in the appropriate place.*
+
+*Which representation is easiest to work with? Which is hardest? Why?*
+
+Using only the techniques covered so far, for `table2`:
+
+```{r}
+countries <- filter(table2, type == 'cases')$country
+years <- filter(table2, type == 'cases')$year
+cases <- filter(table2, type == 'cases')$count
+populations <- filter(table2, type == 'population')$count
+
+table2_rate <- tibble(country = countries,
+                      year = years,
+                      rate = cases/populations * 10000)
+
+table2_rate
+```
+
+and `table4a + table4b`:
+
+```{r}
+countries <- table4a$country
+cases_1999 <- table4a$`1999`
+cases_2000 <- table4a$`2000`
+populations_1999 <- table4b$`1999`
+populations_2000 <- table4b$`2000`
+
+table_1999_rate <- tibble(country = countries,
+                          year = 1999,
+                          rate = cases_1999 / populations_1999 * 10000)
+
+table_2000_rate <- tibble(country = countries,
+                          year = 2000,
+                          rate = cases_2000 / populations_2000 * 10000)
+
+table4_rate <- rbind(table_1999_rate, table_2000_rate) %>% arrange(country)
+
+table4_rate
+```
+
+'table2' is much more easier to work with, and involves less intermediate steps.
+
+*3 - Recreate the plot showing change in cases over time using `table2` instead of `table1`. What do you need to do first?*
+
+We need to first filter `table2` to include only the rows for `cases`.
+
+```{r}
+table2 %>% filter(type == 'cases') %>%
+  ggplot(aes(x = year, y= count)) +
+  geom_line(mapping = aes(group = country),
+            color = 'grey50') +
+  geom_point(mapping = aes(color = country)) + 
+  labs(y = 'cases') +
+  scale_x_continuous(breaks = (c(1999,2000)))
+```
+
+## Spreading and gathering
+
+### Exercises
+
+*1 - Why are `gather()` and `spread()` not perfectly symmetrical?*
+
+*Carefully consider the following example:*
+
+```{r echo = FALSE}
+stocks <- tibble(
+  year   = c(2015, 2015, 2016, 2016),
+  half  = c(   1,    2,     1,    2),
+  return = c(1.88, 0.59, 0.92, 0.17)
+)
+stocks %>% 
+  spread(year, return) %>% 
+  gather("year", "return", `2015`:`2016`)
+```
+
+*(Hint: look at the variable types and think about column names.)*
+
+*Both `spread()` and `gather()` have a convert argument. What does it do?*
+
+`spread()` and `gather()` are complements but might produce tibbles that are not perfectly symmetrical. Comparing the original `stocks` and with the maniuplated one:
+
+```{r}
+stocks
+```
+
+We see that the column positions different. We can show that in the intermediate `spread()` step, `half` becomes the first column, and `2015` and `2016` become the second and third column:
+
+```{r}
+stocks %>% 
+  spread(year, return)
+```
+
+Consequently, the column `half` stays in the first column after `gather()`.
+
+In addition to the positions of columns, the data type for year was converted from `dbl` to `chr`. In the intermediate step, `spread()`, `2015` and `2016` became the names of the variables. So when using `gather()`, `2015` and `2016` were naturally treated as strings, and the variable type for `year` became `chr`.
+
+To override this behavior, we can add `convert = TRUE` in `gather()`. It is useful if the column names are actually numeric, integer, or logical.
+
+```{r}
+stocks %>% 
+  spread(year, return) %>% 
+  gather("year", "return", `2015`:`2016`, convert = TRUE)
+```
+
+*2 - Why does this code fail?*
+
+```{r eval = FALSE}
+table4a %>% 
+  gather(1999, 2000, key = "year", value = "cases")
+#> Error in combine_vars(vars, ind_list): Position must be between 0 and n
+```
+
+We need to add backticks around 1999 and 2000 since the variable names are numeric and hence non-syntatic.
+
+```{r}
+table4a %>% 
+  gather(`1999`, `2000`, key = "year", value = "cases")
+```
+
+*3 - Why does spreading this tibble fail? How could you add a new column to fix the problem?*
+
+```{r}
+people <- tribble(
+  ~name,             ~key,    ~value,
+  #-----------------|--------|------
+  "Phillip Woods",   "age",       45,
+  "Phillip Woods",   "height",   186,
+  "Phillip Woods",   "age",       50,
+  "Jessica Cordero", "age",       37,
+  "Jessica Cordero", "height",   156
+)
+```
+
+Spreading this tibble will fail because there are duplicated rows, i.e., there are two rows of "Phillip Woods" with key "age". In other words, a single cell cannot be both 45 and 50 at the same time. We can add a new column to to make those rows to be not duplicates.
+
+```{r}
+people %>%
+  group_by(name, key) %>%
+  mutate(id = row_number())
+```
+
+Now we can use `spread()`:
+
+```{r}
+people %>%
+  group_by(name, key) %>%
+  mutate(id = row_number()) %>%
+  spread(key = "key", value = "value") %>%
+  select(-id)
+```
+
+*4 - Tidy the simple tibble below. Do you need to spread or gather it? What are the variables?*
+
+```{r}
+preg <- tribble(
+  ~pregnant, ~male, ~female,
+  "yes",     NA,    10,
+  "no",      20,    12
+)
+```
+
+This simple tibble appears to represent three observations:
+
+1 - pregnant female of some value 10
+2 - non-pregnant male of some value 20
+3 - non-pregnant female of some value 12
+
+We can use `gather()`:
+
+```{r}
+preg %>%
+  gather(key = 'gender', value = 'value', 2:3)
+```
+
+## Separating and uniting
+
+### Exercises
+
+*1 - What do the `extra` and `fill` arguments do in `separate()`? Experiment with the various options for the following two toy datasets.*
+
+`extra` controls what happens when the separated pieces are more than the number of variables defined in `into`. The default option is `warn`, which shows a warning and drops extra pieces. The option `drop` drops extra pieces without giving a warning. 
+
+```{r}
+tibble(x = c("a,b,c", "d,e,f,g", "h,i,j")) %>% 
+  separate(x, c("one", "two", "three"), extra = 'drop')
+```
+
+The last option `merge` will only split at most `length(into)` times.
+
+```{r}
+tibble(x = c("a,b,c", "d,e,f,g", "h,i,j")) %>% 
+  separate(x, c("one", "two", "three"), extra = 'merge')
+```
+
+`fill` is similar to `extra`, except it controls what happens if the separated pieces are less than the number of variables defined in `into`. By default, it fills with NA on the right and gives a warning. The option `right` fills with NAs on the right without a warning.
+
+```{r}
+tibble(x = c("a,b,c", "d,e", "f,g,i")) %>% 
+  separate(x, c("one", "two", "three"), fill = 'right')
+```
+
+The option `left` fills with NAs on the left.
+
+```{r}
+tibble(x = c("a,b,c", "d,e", "f,g,i")) %>% 
+  separate(x, c("one", "two", "three"), fill = 'left')
+```
+
+*2 - Both `unite()` and `separate()` have a `remove` argument. What does it do? Why would you set it to `FALSE`?*
+
+The `remove` argument is set to `TRUE` by default. It removes input columns from output data frame. If set to `FALSE`, the original separate column, or the united columns, are retained in the output.
+
+In table3, the `year` column is separated into `century` and `year`, but is retained in the output.
+
+```{r}
+table3 %>% 
+  separate(year, into = c("century", "year"), sep = 2, remove = FALSE)
+```
+
+In table5, the `century` and `year` columns are united as `new`, but are retained in the output.
+
+```{r}
+table5 %>% 
+  unite(new, century, year, sep = "", remove = FALSE)
+```
+
+*3 - Compare and contrast `separate()` and `extract()`. Why are there three variations of separation (by position, by separator, and with groups), but only one unite?*
+
+`extract()` uses regluar expression to capture groups and turn groups into multiple columns.
+
+There are many ways to separate a column into multiple columns. In contrast, there is only one way to put together multiple columns into a single column.
+
+## Missing values
+
+### Exercises
+
+*1 - Compare and contrast the `fill` arguments to `spread()` and `complete()`.*
+
+In `spread()`, all `NA`s will be replaced by the `fill` value. The `fill` argument only takes in one value.
+
+In `complete()`, `NA`s under different columns can be replaced by different values. The `fill` argument takes in a list that specifies the values to replace `NA` for different columns?fill.
+
+*2 - What does the direction argument to `fill()` do?*
+
+The default value is `down`. Any `NA`s will be replaced by the previous non-missing value. The filling direction can be reversed if `.direction` is set to `up`.
+
+## Case Study
+
+### Exercises
+
+*1 - In this case study I set `na.rm = TRUE` just to make it easier to check that we had the correct values. Is this reasonable? Think about how missing values are represented in this dataset. Are there implicit missing values? What's the difference between an `NA` and zero?*
+
+First we can check if there are any implicit missing values by looking at the first and the last year of recorded data for each country:
+
+```{r}
+who %>%
+  group_by(country) %>%
+  summarize(year_min = min(year), year_max = max(year)) %>%
+  ggplot() +
+  geom_point(mapping = aes(x = country, y = year_min), color = 'red') +
+  geom_point(mapping = aes(x = country , y= year_max), color = 'blue') +
+  coord_flip()
+```
+
+We can see that most countries have their first recorded data in 1980, and last recorded data in 2013, with the exception for a few countries. That means that there are implicit missing values - the values in some years for a certain few countries simply do not appear in the data set.
+
+Another way to investigate this and to confirm our finding is to look at the number of years of recorded data for each country:
+
+```{r}
+who %>%
+  group_by(country) %>%
+  summarize(count = n()) %>%
+  ggplot() +
+  geom_point(mapping = aes(x = country, y = count), color = 'green') +
+  coord_flip()
+```
+
+Again, we see that while most countries have 34 years of recorded data, some countries have less.
+
+We also check if there are any 0 recorded cases:
+
+```{r}
+sum(who %>% select(-c(1:4)) == 0, na.rm = TRUE)
+```
+
+There are cases that have a recorded value of 0, which mean they are explicitly stated as no-case.
+
+We then also check the number of `NA`s in each column:
+
+```{r}
+who %>% select(-c(1:4)) %>%
+  sapply(function(x){sum(is.na(x))})
+```
+
+These `NA`s are explicitly stated as missing values. Also notice that the number of `NA`s in each column are different, which means that in a given year for a country, there are both missing and non-missing cases.
+
+Depending on the importance of `NA`s and their interpretations, setting `na.rm = TRUE` can be reasonable.
+
+*2 - What happens if you neglect the `mutate()` step? (`mutate(key = stringr::str_replace(key, "newrel", "new_rel"))`)*
+
+The `code` will not be separated properly into the three columns `new`, `var`, and `sexage`.
+
+*3 - I claimed that `iso2` and `iso3` were redundant with country. Confirm this claim.*
+
+A crude way to confirm this is to check the number of unique values in `country`, `iso2`, and `iso3`.
+
+```{r}
+who %>% select(1:3) %>% sapply(function(x){length(unique(x))})
+```
+
+and check the number of unique combinations of these columns
+
+```{r}
+who %>% select(1:3) %>%
+  unite(combined, 1:3) %>%
+  select(combined) %>%
+  distinct() %>%
+  nrow()
+```
+
+Thus we can confirm that for each country, there is only one `iso2` code, and also one `iso3` code. `iso2` and `iso3` are redundant columns. 
+
+*4 - For each country, year, and sex compute the total number of cases of TB. Make an informative visualisation of the data.*
+
+Starting from the original `who` dataset:
+
+```{r}
+who %>%
+  gather(code, value, new_sp_m014:newrel_f65, na.rm = TRUE) %>% 
+  mutate(code = stringr::str_replace(code, "newrel", "new_rel")) %>%
+  separate(code, c("new", "var", "sexage")) %>% 
+  select(-new, -iso2, -iso3) %>% 
+  separate(sexage, c("sex", "age"), sep = 1) %>%
+  group_by(country, year, sex) %>%
+  summarize(total_case = sum(value)) %>%
+  unite(country_sex, country, sex, remove = FALSE) %>%
+  filter(year >= 1995) %>%
+  ggplot() +
+  geom_line(mapping = aes(x = year, y = total_case, color = sex,
+                          group = country_sex))
+```
+
+The reason we need to include `unite(country_sex, country, sex, remove = FALSE)` is that we need to separate the lines not just by country, but by country and gender combinations.
+
+This is the most informative plot we can get based on the instruction given. With over 200 countries, coloring the lines by countries will be very confusing, also facetting by countries will create 200 little plots.
+
+## Non-tidy data
+
+No exercises.

@@ -1,0 +1,341 @@
+# Relational data
+
+## Introduction
+
+No exercises.
+
+## nycflights13
+
+### Exercises
+
+```{r message = FALSE}
+library(tidyverse)
+library(nycflights13)
+```
+
+*1 - Imagine you wanted to draw (approximately) the route each plane flies from its origin to its destination. What variables would you need? What tables would you need to combine?*
+
+Here I printed out the complete list of variable names in `airports`, `planes`, and `flights`.
+
+```{r}
+colnames(airports)
+```
+
+```{r}
+colnames(planes)
+```
+
+```{r}
+colnames(flights)
+```
+
+The main two tables we need to combine are `airports` and `flights`. We need to match bth `origin` and `dest` in `flights` with `faa` in `airports`. If we want additional information about each plane, then we will need to match `tailnum` in `planes` with `tailnum` in `flights` as well.
+
+*2 - I forgot to draw the relationship between `weather` and `airports`. What is the relationship and how should it appear in the diagram?*
+
+Referring to the variable names of the two tables:
+
+```{r}
+colnames(weather)
+```
+
+```{r}
+colnames(airports)
+```
+
+The two tables can be matched via the variable `origin` in `weather` and `faa` in `airports`.
+
+*3 - `weather` only contains information for the origin (NYC) airports. If it contained weather records for all airports in the USA, what additional relation would it define with `flights`?*
+
+It would allow us to match the weather at the destinations as well.
+
+*4 - We know that some days of the year are special, and fewer people than usual fly on them. How might you represent that data as a data frame? What would be the primary keys of that table? How would it connect to the existing tables?*
+
+We can create a new table `special` containing the pertaining information of the special dates. To match `special` with the exisiting tables, the keys would be `year`, `month`, and `day`.
+
+## Keys
+
+### Exercises
+
+*1 - Add a surrogate key to `flights`.*
+
+```{r}
+flights %>%
+  mutate(index = row_number()) %>%
+  select(index, everything())
+```
+
+*2 - Identify the keys in the following datasets*
+
+The primary keys for `Lahman::Batting` are `playerID`, `yearID`, `stint`, `teamID`, and `lgID`.
+
+```{r}
+Lahman::Batting %>%
+  group_by(playerID, yearID, stint, teamID, lgID) %>%
+  mutate(n = n()) %>%
+  filter(n > 1) %>%
+  nrow()
+```
+
+The primary keys for `babynames::babynames` are `year`, `sex`, and `name`.
+
+```{r}
+babynames::babynames %>%
+  group_by(year, sex, name) %>%
+  mutate(n = n()) %>%
+  filter(n > 1) %>%
+  nrow()
+```
+
+The primary keys for `nasaweather::atoms` are `lat`, `long`, `year`, and `month`
+
+```{r}
+nasaweather::atmos %>%
+  group_by(lat, long, year, month) %>%
+  mutate(n = n()) %>%
+  filter(n > 1) %>%
+  nrow()
+```
+
+The primary key for `fueleconomy::vehicles` is simply `id`.
+
+```{r}
+fueleconomy::vehicles %>%
+  group_by(id) %>%
+  mutate(n = n()) %>%
+  filter(n > 1) %>%
+  nrow()
+```
+
+It's a bit tricky for `ggplot2::diamdons`. My intuition is that each diamond is unique, so it would be most appropriate to add a surrogate key.
+
+*3 - Draw a diagram illustrating the connections between the `Batting`, `Master`, and `Salaries` tables in the `Lahman` package. Draw another diagram that shows the relationship between `Master`, `Managers`, `AwardsManagers`.*
+
+*How would you characterise the relationship between the Batting, Pitching, and Fielding tables?*
+
+The variables names are printed below:
+
+```{r}
+colnames(Lahman::Batting)
+```
+
+```{r}
+colnames(Lahman::Master)
+```
+
+```{r}
+colnames(Lahman::Salaries)
+```
+
+```{r}
+colnames(Lahman::Managers)
+```
+
+```{r}
+colnames(Lahman::AwardsManagers)
+```
+
+`Batting` contains batting statistics for players. The primary keys are `playerID`, `yearID`, `stint`, `teamID`, and `lgID`. The players' biographical information are stored in `Master` and can be matched with `playerID`. The salary information for each player in each year can be matched with `playerID`, `yearID`, `teamID`, and `lgID`.
+
+`Batting` and `Managers` can be matched with `playerID`, `yearID`, `teamID`, and `lgID`. `Mangers` and `AwardManagers` are matched with `playerID`, `yearID`, `teamID`, and `lgID`.
+
+`Batting`, `Pitching`, and `Fielding` can be matched with `playerID`, `yearID`, `stint`, `teamID`, and `lgID`.
+
+## Mutating joins
+
+### Exercises
+
+*1 - Compute the average delay by destination, then join on the airports data frame so you can show the spatial distribution of delays. Here's an easy way to draw a map of the United States:*
+
+```{r eval = FALSE}
+airports %>%
+  semi_join(flights, c("faa" = "dest")) %>%
+  ggplot(aes(lon, lat)) +
+    borders("state") +
+    geom_point() +
+    coord_quickmap()
+```
+
+Calculate the average arrival delay at each destination airport. Then join with `airports` to get the `log` and `lat` data. (Note: some `dest` can't find a match in `faa` in `airports`)
+
+```{r message = FALSE}
+flights %>% group_by(dest) %>%
+  summarize(avg_arr_delay = mean(arr_delay, na.rm = TRUE)) %>%
+  left_join(airports, by = c('dest' = 'faa')) %>%
+  ggplot(aes(x = lon, y = lat, size = avg_arr_delay, color = avg_arr_delay)) +
+  borders('state') +
+  geom_point() +
+  coord_quickmap()
+```
+
+*2 - Add the location of the origin and destination (i.e. the lat and lon) to flights.*
+
+To better distingush the added location information between origin and destination, we can define `suffix` to the names of the variables joined to the exisiting table. To illustrate:
+
+```{r}
+flights %>% 
+  left_join(airports, by = c('dest' = 'faa')) %>%
+  left_join(airports, by = c('origin' = 'faa'), suffix = c('.dest', '.origin')) %>%
+  select(dest, origin, contains('lat'), contains('lon'))
+```
+
+*3 - Is there a relationship between the age of a plane and its delays?*
+
+We need information from `flights` and `planes`. We first calculate the average departure delay and arrival delay for each `tailnum`, then join with `planes` through the variable `tailnum` to get the age information.
+
+```{r}
+flights %>% group_by(tailnum) %>%
+  summarise(avg_dep_delay = mean(dep_delay, na.rm = TRUE),
+            avg_arr_delay = mean(arr_delay, na.rm = TRUE)) %>%
+  gather(key = 'mode', value = 'delay', 2:3) %>%
+  left_join(planes, by = 'tailnum') %>%
+  ggplot(mapping = aes(x = year, y = delay)) +
+  geom_point() +
+  geom_smooth(se = FALSE) +
+  facet_grid(.~mode)
+```
+
+Apparently it is hard to say there is some kind of relationship between delays and year of a plane.
+
+*4 - What weather conditions make it more likely to see a delay?*
+
+Since `weather` only contains origin airports, we will look at departure delay.
+
+```{r}
+flights %>% 
+  left_join(weather, by = c('year','month','day','hour','origin')) %>%
+  gather(key = 'condition', value = 'value', temp:visib) %>%
+  filter(!is.na(dep_delay)) %>%
+  ggplot(mapping = aes(x = value, y = dep_delay)) +
+  geom_point() +
+  facet_wrap(~condition, ncol = 3, scale = 'free_x')
+```
+
+Can you tell which conditions are correlated with departure delay? Just looking at the individual bivariate relationship between departure delay and each weather condition, there does not seem to be any strong correlation.
+
+*5 - What happened on June 13 2013? Display the spatial pattern of delays, and then use Google to cross-reference with the weather.*
+
+```{r}
+flights %>% filter(year == 2013, month == 6, day == 13) %>%
+  group_by(dest) %>%
+  summarize(avg_arr_delay = mean(arr_delay, na.rm = TRUE)) %>%
+  left_join(airports, by = c('dest' = 'faa')) %>%
+  ggplot(aes(x = lon, y = lat, size = avg_arr_delay, color = avg_arr_delay)) +
+  borders('state') +
+  geom_point(alpha = .5) +
+  scale_color_continuous(low = 'yellow', high = 'red') + 
+  coord_quickmap()
+```
+
+## Filtering joins
+
+### Exercises
+
+*1 - What does it mean for a flight to have a missing `tailnum`? What do the tail numbers that don't have a matching record in `planes` have in common? (Hint: one variable explains ~90% of the problems.)*
+
+Flights have a missing `tailnum` are those that were cancellled, or without missing `dep_time`, etc.
+
+```{r}
+flights %>%
+  filter(is.na(tailnum))
+```
+
+For those `tailnum` that don't have a matching record in `plane`, it seems most of them come from the same two carriers.
+
+```{r}
+flights %>%
+  anti_join(planes, by = 'tailnum') %>%
+  group_by(carrier) %>%
+  summarize(n = n()) %>%
+  arrange(desc(n))
+  
+```
+
+
+*2 - Filter flights to only show flights with planes that have flown at least 100 flights.*
+
+Create a new table that contains planes that have flown over 100 times, then just `semi_join()`.
+
+```{r}
+flights_100 <- flights %>%
+  filter(!is.na(dep_delay)) %>%
+  group_by(tailnum) %>%
+  summarize(n = n()) %>%
+  filter(n > 100)
+
+flights %>%
+  semi_join(flights_100, by = 'tailnum')
+```
+
+*3 - Combine `fueleconomy::vehicles` and `fueleconomy::common` to find only the records for the most common models.*
+
+```{r}
+fueleconomy::vehicles %>%
+  semi_join(fueleconomy::common, by = c('make', 'model'))
+```
+
+*4 - Find the 48 hours (over the course of the whole year) that have the worst delays. Cross-reference it with the `weather` data. Can you see any patterns?*
+
+Though not technically the same, we'll calculate the average delay for each day and attempt to identifty the 2-day windows that have the worst delays. We'll also calculate the average weather coditions.
+
+```{r}
+flights_2day <- flights %>% group_by(year, month, day) %>%
+  summarize(avg_dep_delay = mean(dep_delay, na.rm = TRUE),
+            avg_arr_delay = mean(arr_delay, na.rm = TRUE)) %>%
+  unite(date, year, month, day, sep = '-') %>%
+  mutate(date = parse_date(date, "%Y-%m-%d")) %>%
+  gather(key = 'mode', value = 'delay', 2:3) %>%
+  mutate(mode = factor(mode, labels = c('Average arrival delay',
+                                        'Average departure delay')))
+
+weather_2day <- weather %>% group_by(year, month, day) %>%
+  summarize(avg_wind_speed = mean(wind_speed, na.rm = TRUE),
+            avg_wind_gust = mean(wind_gust, na.rm = TRUE),
+            avg_precip = mean(precip, na.rm = TRUE),
+            avg_visib = mean(visib, na.rm = TRUE)) %>%
+  unite(date, year, month, day, sep = '-') %>%
+  mutate(date = parse_date(date, "%Y-%m-%d"))
+
+flights_2day %>% ggplot() +
+  geom_point(mapping = aes(x = date, y = delay, color = mode)) +
+  geom_line(mapping = aes(x = date, y = delay, color = mode)) +
+  geom_line(data = weather_2day,
+            mapping = aes(x = date, y = (avg_visib-10)*5, color = 'Average visibility')) +
+  scale_y_continuous(sec.axis = sec_axis(~./5 + 10,
+                                         name = "Average visibility (km)")) +
+  facet_wrap(~mode, ncol = 1) +
+  labs(x = "Date",
+       y = "Average delay (minutes)",
+       color = 'Legend',
+       title = "Average delay and average visibility")
+```
+
+We have only plotted average delays with average visability. There seems to be (maybe only due to confirmation bias?) that high delays are related to low visibility. We can do similar plots for average delays with other weather conditions, but we will stop here.
+
+*5 - What does `anti_join(flights, airports, by = c("dest" = "faa"))` tell you? What does `anti_join(airports, flights, by = c("faa" = "dest"))` tell you?*
+
+`anti_join(flights, airports, by = c("dest" = "faa"))` shows flight whose destinations are not included in the `airports` database.
+
+`anti_join(airports, flights, by = c("faa" = "dest"))` shows airport names and locations that flights from `flights` are not flying to.
+
+*6 - You might expect that there's an implicit relationship between plane and airline, because each plane is flown by a single airline. Confirm or reject this hypothesis using the tools you've learned above.*
+
+Applying a few functions with `flights` data:
+
+```{r}
+flights %>%
+  select(carrier, tailnum) %>%
+  group_by(tailnum) %>%
+  summarize(n = length(unique(carrier))) %>%
+  filter(n > 1)
+```
+
+There were planes that were flown by over 1 carrier.
+
+## Join problems
+
+No exercises.
+
+## Set operations
+
+No exercises.

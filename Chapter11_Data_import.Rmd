@@ -1,0 +1,168 @@
+# Data Import
+
+## Introduction
+
+No exercises
+
+## Getting started
+
+### Exercises
+
+```{r message = FALSE, warning = FALSE}
+library(tidyverse)
+library(readr)
+```
+
+*1 - What function would you use to read a file where fields were separated with `|`?*
+
+We can use `read_delim()`:
+
+```{r}
+read_delim("a|b|c\n1|2|3\n4|5|6", delim = "|")
+```
+
+*2 - Apart from `file`, `skip`, and `comment`, what other arguments do `read_csv()` and `read_tsv()` have in common?*
+
+`read_csv()` and `read_tsv()` have the same arguments. They only difference is that one is comma delimited, and the other is tab delimited.
+
+*3 - What are the most important arguments to `read_fwf()`?*
+
+The most important argument is `col_positions`, which defines the column positions.
+
+*4 - Sometimes strings in a CSV file contain commas. To prevent them from causing problems they need to be surrounded by a quoting character, like `"` or `'`. By convention, `read_csv()` assumes that the quoting character will be `"`, and if you want to change it you'll need to use `read_delim()` instead. What arguments do you need to specify to read the following text into a data frame?*
+
+```{r eval = FALSE}
+"x,y\n1,'a,b'"
+```
+
+
+The argument is `quote`, and we can use it in `read_csv()`, `read_csv2()`, and `read_tsv()` as well. For example:
+
+```{r}
+read_csv("x,y\n1,'a,b'", quote = "\'")
+```
+
+*5 - Identify what is wrong with each of the following inline CSV files. What happens when you run the code?*
+
+```{r}
+read_csv("a,b\n1,2,3\n4,5,6")
+```
+
+Only two columns names are provided, so the values in the last column are dropped.
+
+```{r}
+read_csv("a,b,c\n1,2\n1,2,3,4")
+```
+
+Only three column names are provided. The value in the last column in the last row is dropped, and `NA` is coerced in the third column of second row.
+
+```{r}
+read_csv("a,b\n\"1")
+```
+
+The open quote `\"` is dropped because there is no paired close quote. There is only one value in the second row, so `NA` is coerced in the second column.
+
+```{r}
+read_csv("a,b\n1,2\na,b")
+```
+
+Since the second rows are strings, the entire columns are coerced into strings.
+
+```{r}
+read_csv("a;b\n1;3")
+```
+
+`read_csv()` looks for commas, not semi-colons. Everything is treated as one column name and one value.
+
+## Parsing a vector
+
+### Exercises
+
+*1 - What are the most important arguments to `locale()?`*
+
+`locale()` comes with a number of arguments. They are all important and useful whne parsing different types of variables. Type `?locale()` for a complete list of arguments.
+
+*2 - What happens if you try and set `decimal_mark` and `grouping_mark` to the same character? What happens to the default value of `grouping_mark` when you set `decimal_mark` to `,`? What happens to the default value of `decimal_mark` when you set the `grouping_mark` to `.`?*
+
+Explicitly setting `decimal_mark` and `grouping_mark` to the same character will give you an error.
+
+If we only set `decimal_mark` to ",", `grouping_mark` will be set to '.' automatically.
+
+```{r}
+locale(decimal_mark = ',')
+```
+
+*3 - I didn't discuss the `date_format` and `time_format` options to locale(). What do they do? Construct an example that shows when they might be useful.*
+
+`date_format` and `time_format` specify the default date and time format respectively. `parse_date()` and `parse_time()` use the `date_format` and `time_format` specified by `locale()`. For example:
+
+```{r}
+parse_date("01/02/15", locale = locale(date_format = "%d/%m/%y"))
+```
+
+Alternatively, we can specify the date format in the `format` argument:
+
+```{r}
+parse_date("01/02/15", format = "%d/%m/%y")
+```
+
+*4 - If you live outside the US, create a new locale object that encapsulates the settings for the types of file you read most commonly.*
+
+For example, we can change the `date_names` argument to something else if the spelling of months are different.
+
+*5 - What's the difference between read_csv() and read_csv2()?*
+
+`read_csv()` is comma delimited. `read_csv2()` is semi-colon delimited.
+
+*6 - What are the most common encodings used in Europe? What are the most common encodings used in Asia? Do some googling to find out.*
+
+Check out this [Wikipage](https://en.wikipedia.org/wiki/Character_encoding).
+
+*7 - Generate the correct format string to parse each of the following dates and times:*
+
+```{r}
+d1 <- "January 1, 2010"
+parse_date(d1, "%B %d, %Y")
+```
+
+```{r}
+d2 <- "2015-Mar-07"
+parse_date(d2, "%Y-%b-%d")
+```
+
+```{r}
+d3 <- "06-Jun-2017"
+parse_date(d3, "%d-%b-%Y")
+```
+
+```{r}
+d4 <- c("August 19 (2015)", "July 1 (2015)")
+parse_date(d4, "%B %d (%Y)")
+```
+
+```{r}
+d5 <- "12/30/14" # Dec 30, 2014
+parse_date(d5, "%m/%d/%y")
+```
+
+```{r}
+t1 <- "1705"
+parse_time(t1, "%H%M")
+```
+
+```{r}
+t2 <- "11:15:10.12 PM"
+parse_time(t2, "%I:%M:%OS %p")
+```
+
+## Parsing a file
+
+No exercises.
+
+## Writing to a file
+
+No exercises.
+
+## Other types of data
+
+No exercises.
